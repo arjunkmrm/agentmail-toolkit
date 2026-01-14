@@ -49,30 +49,40 @@ export async function getAttachment(client: AgentMailClient, args: Args): Promis
     const fileType = detectFileType(fileBytes)
 
     let text = undefined
+    let detectedFileType = fileType
 
     if (fileType === 'application/pdf') {
         const pdf = await getDocumentProxy(fileBytes)
         const { text: pdfText } = await extractText(pdf)
         text = Array.isArray(pdfText) ? pdfText.join('\n') : pdfText
-    } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    } else if (fileType === 'application/zip') {
+        // Check ZIP contents to determine specific type
         const zip = await JSZip.loadAsync(fileBytes)
-        const documentXml = await zip.file('word/document.xml')?.async('string')
-        if (!documentXml) {
-            return { error: 'Invalid DOCX: missing word/document.xml', fileType }
+        if (zip.file('word/document.xml')) {
+            // It's a DOCX file
+            detectedFileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            const documentXml = await zip.file('word/document.xml')?.async('string')
+            if (!documentXml) {
+                return { error: 'Invalid DOCX: missing word/document.xml', fileType: detectedFileType }
+            }
+            text = documentXml
+                .replace(/<w:p[^>]*>/g, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/\n{3,}/g, '\n\n')
+                .trim()
+        } else {
+            return { error: 'Unsupported ZIP format', fileType }
         }
-        text = documentXml
-            .replace(/<w:p[^>]*>/g, '\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&apos;/g, "'")
-            .replace(/\n{3,}/g, '\n\n')
-            .trim()
     } else {
         return { error: `Unsupported file type: ${fileType || 'unknown'}`, fileType }
     }
+
+    return { text, fileType: detectedFileType }
 
     return { text, fileType }
 }

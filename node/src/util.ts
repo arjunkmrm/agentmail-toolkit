@@ -32,14 +32,15 @@ export function detectFileType(bytes: Uint8Array): string | undefined {
     }
 
     // ZIP signature: PK\x03\x04 (0x50 0x4B 0x03 0x04)
-    // DOCX files are ZIP archives
+    // ZIP archives can be DOCX, XLSX, PPTX, EPUB, JAR, APK, etc.
+    // Specific type detection happens by inspecting ZIP contents
     if (
         bytes[0] === 0x50 &&
         bytes[1] === 0x4b &&
         bytes[2] === 0x03 &&
         bytes[3] === 0x04
     ) {
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        return 'application/zip'
     }
 
     return undefined
