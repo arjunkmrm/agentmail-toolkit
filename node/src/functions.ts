@@ -1,7 +1,7 @@
 import { AgentMailClient } from 'agentmail'
-import { fileTypeFromBuffer } from 'file-type'
 import { extractText, getDocumentProxy } from 'unpdf'
 import JSZip from 'jszip'
+import { detectFileType } from './util.js'
 
 export type Args = Record<string, any>
 
@@ -46,8 +46,7 @@ export async function getAttachment(client: AgentMailClient, args: Args): Promis
     const arrayBuffer = await response.arrayBuffer()
     const fileBytes = new Uint8Array(arrayBuffer)
 
-    const fileKind = await fileTypeFromBuffer(fileBytes)
-    const fileType = fileKind?.mime
+    const fileType = detectFileType(fileBytes)
 
     let text = undefined
 
